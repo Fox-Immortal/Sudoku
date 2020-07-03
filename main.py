@@ -8,8 +8,10 @@ from kivy.core.window import Window
 from kivy.uix.boxlayout import BoxLayout
 from kivy.lang import Builder 
 from kivy.uix.splitter import Splitter
-from solve import board
-
+from solve import grid
+from kivy.clock import Clock
+import time
+from functools import partial
 kivy.require("1.10.1")
 
 kvfile = Builder.load_file("file.kv")
@@ -28,14 +30,13 @@ class Grid(BoxLayout):
                 for i in range(3):
                     self.col = BoxLayout(orientation='horizontal')
                     for k in range(3):
-                        self.cube = self.create_cube(board[j][l][i][k])
-                        self.cube.data = (j, l, i, k)
+                        self.cube = self.create_cube(grid[j][l][i][k])
                         self.col.add_widget(self.cube)
                     self.row.add_widget(self.col)
                 self.big_cols.add_widget(self.row)
             self.grid.add_widget(self.big_cols)
         self.orientation = 'vertical'
-        self.footer = Label(text="hey there")
+        self.footer = BoxLayout(orientation='horizontal')
         self.grid.add_widget(self.footer)
         self.add_widget(self.grid)
         for i in range(1,3):
@@ -43,45 +44,107 @@ class Grid(BoxLayout):
                 for k in range(3):
                     print("[ ", end="")
                     for l in range(3):
+                        self.grid.children[i].children[j].children[k].children[l].data = (i, j, k, l)
                         print(self.grid.children[i].children[j].children[k].children[l].text, end=" , ")
                     print("],", end="")
                 print()
+    def happen(self, *args):
+        print(args)
+        print("***************************")
+    def color(self, colors, instance, time):
+        instance.background_color = colors
+    def clean(self, instance):
+        for i in range(1, 4):
+            for j in range(3):
+                for k in range(3):
+                    for l in range(3):
+                        ins = self.grid.children[i].children[j].children[k].children[l]
+                        if(ins == instance):
+                            continue
+                        Clock.schedule_once(partial(self.color, (1, 1, 1, 1), ins), (i*0.09 + j*0.05 + k*0.05 + l*0.05) + 0.01)
     def lightup(self, instance, value):
-        if(value):
-            instance.background_color = (0.5,0.5,1,1)
-        else:
-            instance.background_color = (1,1,1,1)
-    def validate(self, board, number, position):
+        Clock.schedule_once(partial(self.happen, 1, 2, 3), 0.5)
+        self.clean(instance)
+        instance.background_color = (0.5,0.5,1,1)
+    def validate(self, position):
+        big_row = position[0] 
+        small_row = position[1]
+        small_col = position[2]
+        cell = position[3]
+        number = self.grid.children[big_row].children[small_row].children[small_col].children[cell].text
+        self.currx = self.grid.children[big_row].children[small_row].children[small_col].children[cell]
+        can = True
         for i in range(3):
             for j in range(3):
-                if board.children[position[0] + 1].children[position[1]].children[i].children[j].text == str(number) and i != position[2] and j != position[3]:
-                    return False
-        for i in range(1, 3):
-            for j in range(3):
-                if board.children[i].children[j].children[position[2]].children[position[3]].text == str(number) and i != position[0] + 1 and j != position[1]:
-                    return False        
-        box_row = position[0] + 1
-        box_col = position[2]
+                self.curr = self.grid.children[big_row].children[small_row].children[i].children[j]
+                ins = self.curr
+                if i == small_col and j == cell:
+                    continue 
+                if self.curr.text == str(number):
+                    Clock.schedule_once(partial(self.color, (1, 0, 0, 1), ins), (big_row*0.09 + small_row*0.05 + i*0.05 + j*0.05) + 0.01)
+                    can = False
+                else:
+                    Clock.schedule_once(partial(self.color, (0.2, 1.2, 0.2, 1), ins), (big_row*0.09 + small_row*0.05 + i*0.05 + j*0.05) + 0.01)
         for i in range(3):
             for j in range(3):
-                if board.children[box_row].children[i].children[box_col].children[j] == str(number) and i != position[1] and j != position[3]:
-                    return False
+                self.curr = self.grid.children[i + 1].children[j].children[small_col].children[cell]
+                ins = self.curr
+                if i + 1 == big_row and j == small_row:
+                    continue
+                if self.curr.text == str(number):
+                    Clock.schedule_once(partial(self.color, (1, 0, 0, 1), ins), (i*0.09 + j*0.05 + small_col*0.05 + cell*0.05) + 0.01)
+                    can = False
+                else:
+                    Clock.schedule_once(partial(self.color, (0.2, 1.2, 0.2, 1), ins), (i*0.09 + j*0.05 + small_col*0.05 + cell*0.05) + 0.01)
+        for i in range(3):
+            for j in range(3):
+                self.curr = self.grid.children[big_row].children[i].children[small_col].children[j]
+                ins = self.curr
+                if i == small_row and j == cell:
+                    continue
+                if self.curr.text == str(number):
+                    Clock.schedule_once(partial(self.color, (1, 0, 0, 1), ins), (big_row*0.09 + i*0.05 + small_col*0.05 + j*0.05) + 0.01)
+                    can = False
+                else:
+                    Clock.schedule_once(partial(self.color, (0.2, 1.2, 0.2, 1), ins), (big_row*0.09 + i*0.05 + small_col*0.05 + j*0.05) + 0.01)
+        if(not can):
+            return False
         return True
     def valid(self, instance, value):
-        if(not value.isnumeric() or len(value) > 1):
+        if value == '0' or value == "":
+            self.clean(instance)
+        elif(not value.isnumeric() or len(value) > 1):
             instance.text = ""
         else:
-            val = self.validate(self.grid, int(value), instance.data)
-            print(val)
-    def create_cube(self, number):        
+            self.validate(instance.data)
+    def create_cube(self, number):      
         self.cube = TextInput(multiline=False, text=str(number))
         self.cube.padding = self.cube.width/8
         self.cube.bind(text=self.valid)
         self.cube.bind(focus=self.lightup)
         return self.cube
-    
-    
-
+    def find_empty(self):
+        for i in range(1, 4):
+            for j in range(3):
+                for k in range(3):
+                    for l in range(3):
+                        self.grid.children[i].children[j].children[k].children[l].background_color = (1, 0, 1, 1)
+                        if self.grid.children[i].children[j].children[k].children[l].text == '0':
+                            self.grid.children[i].children[j].children[k].children[l].background_color = (0.6, 0, 1, 1)
+                            return (i, j, k, l)
+        return None
+    def solve(self):
+        found = self.find_empty()
+        if not found:
+            return True
+        i, j, k, l = found
+        for num in range(1, 10):
+            self.grid.children[i].children[j].children[k].children[l].text = str(num)
+            if(self.validate(found)):
+                if(self.solve() == True):
+                    return True
+                self.grid.children[i].children[j].children[k].children[l].text = '0'
+        return False
 class MainPage(GridLayout):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
