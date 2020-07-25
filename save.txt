@@ -7,9 +7,11 @@ from kivy.config import Config
 from kivy.core.window import Window
 from kivy.uix.boxlayout import BoxLayout
 from kivy.lang import Builder 
+from kivy.uix.splitter import Splitter
 from solve import grid
 from kivy.clock import Clock
 from kivy.uix.button import Button
+import time
 from functools import partial
 kivy.require("1.10.1")
 
@@ -19,7 +21,6 @@ kvfile = Builder.load_file("file.kv")
 class Grid(BoxLayout):
     def __init__(self, **kwagrs):
         super().__init__(**kwagrs)
-        self.can = False
         self.grid = BoxLayout(orientation='vertical')
         self.grid.spacing = 4
         for j in range(3):
@@ -38,46 +39,38 @@ class Grid(BoxLayout):
         self.orientation = 'vertical'
         self.footer = BoxLayout(orientation='horizontal')
         self.btn_solve = Button(text="Solve")
-        self.btn_solve.bind(on_press=self.gui_solve)
+        self.btn_solve.bind(on_press=self.solve)
         self.footer.add_widget(self.btn_solve)
-        self.counter = Button(text="Your mistakes are : 0")
-        self.counter.bind(on_press=self.gui_solve)
-        self.counter.mistakes = 0
-        self.footer.add_widget(self.counter)
         self.grid.add_widget(self.footer)
         self.add_widget(self.grid)
-        for i in range(1,4):
+                for i in range(1,3):
             for j in range(3):
                 for k in range(3):
                     print("[ ", end="")
                     for l in range(3):
                         self.grid.children[i].children[j].children[k].children[l].data = (i, j, k, l)
-                        grid[i][j][k][l] = int(self.grid.children[i].children[j].children[k].children[l].text)
                         print(self.grid.children[i].children[j].children[k].children[l].text, end=" , ")
                     print("],", end="")
                 print()
     def happen(self, *args):
         print(args)
         print("***************************")
-        return args
-    def color(self, colors, instance, *args):
+    def color(self, colors, instance, time):
         instance.background_color = colors
-    def clean(self, instance, *args):
+    def clean(self, instance):
         for i in range(1, 4):
             for j in range(3):
                 for k in range(3):
                     for l in range(3):
                         ins = self.grid.children[i].children[j].children[k].children[l]
-                        if(instance != None and ins == instance):
+                        if(ins == instance):
                             continue
-                        if(instance == None and ins.text == "0"):
-                            continue
-                        Clock.schedule_once(partial(self.color, (1, 1, 1, 1), ins), (i*0.09 + j*0.01 + k*0.01 + l*0.01) + 0.01)
+                        Clock.schedule_once(partial(self.color, (1, 1, 1, 1), ins), (i*0.09 + j*0.05 + k*0.05 + l*0.05) + 0.01)
     def lightup(self, instance, value):
         Clock.schedule_once(partial(self.happen, 1, 2, 3), 0.5)
         self.clean(instance)
         instance.background_color = (0.5,0.5,1,1)
-    def validate(self, position, *args):
+    def validate(self, position):
         big_row = position[0] 
         small_row = position[1]
         small_col = position[2]
@@ -127,10 +120,7 @@ class Grid(BoxLayout):
         elif(not value.isnumeric() or len(value) > 1):
             instance.text = ""
         else:
-            v = self.validate(instance.data)
-            if(not v and not self.can):
-                self.counter.mistakes += 1
-                self.counter.text= f"Your mistakes are : {self.counter.mistakes}"
+            self.validate(instance.data)
     def create_cube(self, number):      
         self.cube = TextInput(multiline=False, text=str(number))
         self.cube.padding = self.cube.width/8
@@ -142,35 +132,15 @@ class Grid(BoxLayout):
             for j in range(3):
                 for k in range(3):
                     for l in range(3):
+                        self.grid.children[i].children[j].children[k].children[l].background_color = (1, 0, 1, 1)
                         if self.grid.children[i].children[j].children[k].children[l].text == '0':
+                            self.grid.children[i].children[j].children[k].children[l].background_color = (0.6, 0, 1, 1)
                             return (i, j, k, l)
         return None
-    def gui_find(self, *args):
-        self.zeros = []
-        for i in range(1, 4):
-            for j in range(3):
-                timing = i*0.09 + j*0.09 + 0.1
-                for k in range(3):
-                    for l in range(3):
-                        ins = self.grid.children[i].children[j].children[k].children[l]
-                        Clock.schedule_once(partial(self.color, (1, 1, 0, 1), ins), timing)
-                        if ins.text == '0':
-                            self.zeros.append([i, j, k, l])
-                            Clock.schedule_once(partial(self.color, (1.2, 0.1, 0.1, 1), ins), timing)
-        return self.zeros
-    def gui_solve(self, *args):
-        to_valid = self.gui_find()
-        Clock.schedule_once(partial(self.clean, None), 1.2)
-        for c in to_valid:
-            Clock.schedule_once(partial(self.validate, c), 1.6)
-        Clock.schedule_once(partial(self.clean, None), 2)
-        Clock.schedule_once(partial(self.solve), 2.1)
     def solve(self, *args):
-        self.can = True
+        print(args)
         found = self.find_empty()
         if not found:
-            Clock.schedule_once(partial(self.clean, None), 1.5) 
-            self.can = False
             return True
         i, j, k, l = found
         for num in range(1, 10):
@@ -178,12 +148,8 @@ class Grid(BoxLayout):
             if(self.validate(found)):
                 if(self.solve() == True):
                     return True
-            self.grid.children[i].children[j].children[k].children[l].text = '0'
+                self.grid.children[i].children[j].children[k].children[l].text = '0'
         return False
-    
-
-
-
 class MainPage(GridLayout):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
